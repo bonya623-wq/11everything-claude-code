@@ -66,8 +66,8 @@ def main_keyboard():
         kb.row(KeyboardButton("🚀 Запустить все"))
         kb.row(KeyboardButton("🎮 Выбрать аккаунты"), KeyboardButton("🎯 Выбрать предметы"))
     kb.row(KeyboardButton("📋 Логи"), KeyboardButton("📊 Статус"))
-    kb.row(KeyboardButton("🔍 Проверить базу"), KeyboardButton("🗑 Удалить лоты"))
-    kb.row(KeyboardButton("📄 База лотов"))
+    kb.row(KeyboardButton("🔍 Проверить аккаунты"), KeyboardButton("🎯 Проверить предметы"))
+    kb.row(KeyboardButton("🗑 Удалить лоты"), KeyboardButton("📄 База лотов"))
     return kb
 
 def games_keyboard(selected=None):
@@ -204,7 +204,7 @@ def stream_logs(chat_id, mode=None):
     checked_count = 0
     deleted_count = 0
     total_count   = 0
-    is_check_mode = (mode == "c")
+    is_check_mode = (mode in ("c", "ca", "ci"))
 
     # Состояние для уведомления о публикации лота
     _cur_game  = ""
@@ -538,14 +538,24 @@ def cmd_logs(msg):
     else:
         bot.send_message(msg.chat.id, "Логов пока нет")
 
-@bot.message_handler(func=lambda m: m.text == "🔍 Проверить базу")
-def cmd_check_base(msg):
+@bot.message_handler(func=lambda m: m.text == "🔍 Проверить аккаунты")
+def cmd_check_accounts(msg):
     if msg.from_user.id != ALLOWED_ID: return
     if is_running():
         bot.send_message(msg.chat.id, "⚠️ Сначала остановите бота!")
         return
-    bot.send_message(msg.chat.id, "🔍 Запускаю проверку базы...\n⚠️ Chrome должен быть открыт!")
-    start_bot_process(["c"], msg.chat.id)
+    bot.send_message(msg.chat.id, "🔍 Запускаю проверку аккаунтов...\n⚠️ Chrome должен быть открыт!")
+    start_bot_process(["ca"], msg.chat.id)
+
+
+@bot.message_handler(func=lambda m: m.text == "🎯 Проверить предметы")
+def cmd_check_items(msg):
+    if msg.from_user.id != ALLOWED_ID: return
+    if is_running():
+        bot.send_message(msg.chat.id, "⚠️ Сначала остановите бота!")
+        return
+    bot.send_message(msg.chat.id, "🎯 Запускаю проверку предметов...\n⚠️ Chrome должен быть открыт!")
+    start_bot_process(["ci"], msg.chat.id)
 
 @bot.message_handler(func=lambda m: m.text == "📊 Статус")
 def cmd_status(msg):

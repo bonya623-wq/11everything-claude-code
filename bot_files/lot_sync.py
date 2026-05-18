@@ -411,13 +411,17 @@ class LotSyncManager:
         )
         self.storage.add(pair)
 
-    async def check_once(self) -> int:
+    async def check_once(self, category_filter: str = None) -> int:
         pairs = self.storage.all()
+        if category_filter:
+            pairs = [p for p in pairs if p.category == category_filter]
         if not pairs:
-            logger.info("LotSync: нет пар для проверки")
+            label = f"[{category_filter}] " if category_filter else ""
+            logger.info(f"LotSync: {label}нет пар для проверки")
             return 0
 
-        logger.info(f"LotSync: проверяем {len(pairs)} пар...")
+        label = f"[{category_filter}] " if category_filter else ""
+        logger.info(f"LotSync: {label}проверяем {len(pairs)} пар...")
         deleted = 0
 
         for idx, pair in enumerate(pairs, 1):

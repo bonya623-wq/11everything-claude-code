@@ -96,6 +96,12 @@ def select_games(games: list[dict]):
     if raw.lower() == "c":
         return "clean_storage"
 
+    if raw.lower() == "ca":
+        return "clean_accounts"
+
+    if raw.lower() == "ci":
+        return "clean_items"
+
     if raw.lower() == "d":
         # Второй аргумент — выбор игр для удаления
         if len(sys.argv) > 2:
@@ -520,10 +526,19 @@ async def main():
         if pairs_count > 0:
             logger.info(f"LotSync: загружено {pairs_count} пар из прошлой сессии")
 
-        # ── [c] Проверка базы ─────────────────────────────────────────────
-        if active_games == "clean_storage":
-            logger.info("Проверяем базу на проданные/недоступные лоты...")
-            deleted = await sync_manager.check_once()
+        # ── [c / ca / ci] Проверка базы ──────────────────────────────────
+        if active_games in ("clean_storage", "clean_accounts", "clean_items"):
+            _cat_filter = {
+                "clean_accounts": "Account",
+                "clean_items":    "CustomItem",
+            }.get(active_games)
+            _cat_label = {
+                "clean_storage":  "все лоты",
+                "clean_accounts": "аккаунты",
+                "clean_items":    "предметы",
+            }.get(active_games, "")
+            logger.info(f"Проверяем базу ({_cat_label}) на проданные/недоступные лоты...")
+            deleted = await sync_manager.check_once(category_filter=_cat_filter)
             logger.info(f"Очистка завершена. Удалено лотов: {deleted}")
             try:
                 from lot_doc_manager import rebuild_from_pairs
