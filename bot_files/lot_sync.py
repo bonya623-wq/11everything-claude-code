@@ -110,10 +110,11 @@ class LotPairStorage:
             accounts = [asdict(p) for p in self._pairs.values() if p.category != "CustomItem"]
             items    = [asdict(p) for p in self._pairs.values() if p.category == "CustomItem"]
             data = {"accounts": accounts, "items": items}
-            self.filepath.write_text(
-                json.dumps(data, ensure_ascii=False, indent=2),
-                encoding="utf-8"
-            )
+            text = json.dumps(data, ensure_ascii=False, indent=2)
+            # Атомарная запись: пишем в temp, потом rename — файл никогда не бывает обрезан
+            tmp = self.filepath.with_suffix(".tmp")
+            tmp.write_text(text, encoding="utf-8")
+            tmp.replace(self.filepath)
         except Exception as e:
             logger.warning(f"LotSync: ошибка сохранения: {e}")
 
