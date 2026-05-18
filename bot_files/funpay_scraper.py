@@ -340,20 +340,32 @@ class FunPayScraper:
 
             all_items = await page.query_selector_all("a.tc-item")
 
-            # Если вкладка не Accounts — берём все карточки без фильтра по типу
-            if funpay_tab and funpay_tab.lower() not in ("accounts", "аккаунты"):
-                items = all_items
-                logger.info(f"FunPay: карточек всего: {len(items)}")
-            else:
+            # Ключевые слова data-f-type по вкладке
+            TAB_TYPE_KEYWORDS = {
+                "accounts":  ["аккаунт", "account"],
+                "аккаунты":  ["аккаунт", "account"],
+                "items":     ["предмет", "item", "товар"],
+                "предметы":  ["предмет", "item", "товар"],
+                "services":  ["услуга", "service"],
+                "услуги":    ["услуга", "service"],
+            }
+            tab_key = (funpay_tab or "").lower()
+            type_keywords = TAB_TYPE_KEYWORDS.get(tab_key)
+
+            if type_keywords:
                 items = []
                 for el in all_items:
                     f_type = (await el.get_attribute("data-f-type") or "").lower()
-                    if "аккаунт" in f_type or "account" in f_type:
+                    if any(kw in f_type for kw in type_keywords):
                         items.append(el)
-                logger.info(f"FunPay: карточек аккаунтов: {len(items)}")
+                logger.info(f"FunPay: карточек типа «{funpay_tab}»: {len(items)}")
                 if not items:
                     items = all_items
-                    logger.info(f"FunPay: fallback — берём все карточки: {len(items)}")
+                    logger.info(f"FunPay: fallback — data-f-type не совпал, берём все: {len(items)}")
+            else:
+                # Sale, Guides, Gamepass и прочие — берём все карточки
+                items = all_items
+                logger.info(f"FunPay: карточек всего: {len(items)}")
 
             first_item_logged = False
             for item in items:
