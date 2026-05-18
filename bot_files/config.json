@@ -1,0 +1,21 @@
+{
+  "games": [
+    {
+      "name": "Bee Swarm Simulator Items",
+      "enabled": true,
+      "funpay_url": "https://funpay.com/en/lots/2635/",
+      "funpay_tab": "Items",
+      "eldorado_game_id": 347,
+      "eldorado_category": "CustomItem",
+      "price_multiplier": 1.8,
+      "min_funpay_price_usd": 1,
+      "max_funpay_price_usd": 100,
+      "min_seller_reviews": 50,
+      "require_auto_delivery": false,
+      "max_lots": 50,
+      "lots_per_pass": 5,
+      "lot_threshold": 500,
+      "image_path": "D:\\funpay_zeus_bot\\photo\\bra.png"
+    }
+  ]
+}
