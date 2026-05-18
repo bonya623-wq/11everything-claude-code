@@ -349,7 +349,8 @@ class FunPayScraper:
                 "services":  ["услуга", "service"],
                 "услуги":    ["услуга", "service"],
             }
-            tab_key = (funpay_tab or "").lower()
+            # funpay_tab=None означает что мы кликнули Accounts по умолчанию
+            tab_key = (funpay_tab or "accounts").lower()
             type_keywords = TAB_TYPE_KEYWORDS.get(tab_key)
 
             if type_keywords:
