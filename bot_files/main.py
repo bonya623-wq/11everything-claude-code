@@ -419,6 +419,7 @@ async def process_game(game, funpay, eldorado, sync_manager, mode, global_thresh
                     eldorado_lot_id=eldorado_lot_id,
                     eldorado_game_id=str(game_id) if game_id else "",
                     description=current_lot.title,
+                    category=category,
                 )
                 logger.info(f"+ Пара: FP:{current_lot.lot_id} -> ELD:{eldorado_lot_id}")
                 try:
