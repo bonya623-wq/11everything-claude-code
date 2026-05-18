@@ -285,27 +285,43 @@ class FunPayScraper:
                 }
                 targets = tab_aliases.get(funpay_tab, [funpay_tab])
 
-                clicked_text = await page.evaluate("""
-                    (targets) => {
-                        var btns = document.querySelectorAll('button, .btn, [role="tab"]');
-                        for (var i = 0; i < btns.length; i++) {
-                            var t = btns[i].innerText ? btns[i].innerText.trim() : '';
-                            var v = btns[i].value || '';
-                            if (targets.indexOf(t) !== -1 || targets.indexOf(v) !== -1) {
-                                btns[i].click();
-                                return t || v;
-                            }
-                        }
-                        return null;
-                    }
-                """, targets)
+                # Ждём появления кнопок (страница может догружаться через JS)
+                try:
+                    await page.wait_for_selector(
+                        "button[value], [role='tab'], .btn",
+                        timeout=6000
+                    )
+                except Exception:
+                    logger.warning("FunPay: tab-кнопки не появились за 6с — пробуем без ожидания")
 
-                if clicked_text:
-                    await asyncio.sleep(2)
-                    logger.info(f"FunPay: выбран фильтр «{clicked_text}»")
-                    tab_clicked = True
-                else:
-                    logger.warning(f"FunPay: кнопка '{funpay_tab}' не найдена (искали: {targets})")
+                # До 3 попыток с паузой между ними
+                for attempt in range(3):
+                    clicked_text = await page.evaluate("""
+                        (targets) => {
+                            var btns = document.querySelectorAll('button, .btn, [role="tab"]');
+                            for (var i = 0; i < btns.length; i++) {
+                                var t = btns[i].innerText ? btns[i].innerText.trim() : '';
+                                var v = btns[i].value || '';
+                                if (targets.indexOf(t) !== -1 || targets.indexOf(v) !== -1) {
+                                    btns[i].click();
+                                    return t || v;
+                                }
+                            }
+                            return null;
+                        }
+                    """, targets)
+
+                    if clicked_text:
+                        await asyncio.sleep(2)
+                        logger.info(f"FunPay: выбран фильтр «{clicked_text}» (попытка {attempt+1})")
+                        tab_clicked = True
+                        break
+                    if attempt < 2:
+                        logger.warning(f"FunPay: попытка {attempt+1} — кнопка '{funpay_tab}' не найдена, повтор...")
+                        await asyncio.sleep(1.5)
+
+                if not tab_clicked:
+                    logger.warning(f"FunPay: кнопка '{funpay_tab}' не найдена после 3 попыток (искали: {targets})")
 
             if not tab_clicked and funpay_tab is None:
                 # Дефолт только если tab вообще не задан — кликаем Accounts
