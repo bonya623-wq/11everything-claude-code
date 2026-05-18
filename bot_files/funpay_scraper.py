@@ -277,51 +277,60 @@ class FunPayScraper:
             # ── Кликаем нужную вкладку ────────────────────────────────────
             tab_clicked = False
             if funpay_tab:
-                # FunPay хранит value на русском, текст меняется по локали
-                tab_aliases = {
-                    "Items":    ["Items",    "Предметы"],
-                    "Sale":     ["Sale",     "Продажа"],
-                    "Accounts": ["Accounts", "Аккаунты"],
-                }
-                targets = tab_aliases.get(funpay_tab, [funpay_tab])
-
-                # Ждём появления кнопок (страница может догружаться через JS)
-                try:
-                    await page.wait_for_selector(
-                        "button[value], [role='tab'], .btn",
-                        timeout=6000
-                    )
-                except Exception:
-                    logger.warning("FunPay: tab-кнопки не появились за 6с — пробуем без ожидания")
-
-                # До 3 попыток с паузой между ними
-                for attempt in range(3):
-                    clicked_text = await page.evaluate("""
-                        (targets) => {
-                            var btns = document.querySelectorAll('button, .btn, [role="tab"]');
-                            for (var i = 0; i < btns.length; i++) {
-                                var t = btns[i].innerText ? btns[i].innerText.trim() : '';
-                                var v = btns[i].value || '';
-                                if (targets.indexOf(t) !== -1 || targets.indexOf(v) !== -1) {
-                                    btns[i].click();
-                                    return t || v;
-                                }
-                            }
-                            return null;
-                        }
-                    """, targets)
-
-                    if clicked_text:
-                        await asyncio.sleep(2)
-                        logger.info(f"FunPay: выбран фильтр «{clicked_text}» (попытка {attempt+1})")
-                        tab_clicked = True
+                # Попытка 1: специфичные селекторы фильтр-кнопок (как в roblox_items_scraper)
+                all_btns = await page.query_selector_all(
+                    ".lot-field-radio-box button, .lot-field-input + button, "
+                    "button.btn-gray, button.btn-dark"
+                )
+                filter_btn = None
+                for btn in all_btns:
+                    val = await btn.get_attribute("value") or ""
+                    txt = (await btn.inner_text()).strip()
+                    if val == funpay_tab or txt == funpay_tab:
+                        filter_btn = btn
                         break
-                    if attempt < 2:
-                        logger.warning(f"FunPay: попытка {attempt+1} — кнопка '{funpay_tab}' не найдена, повтор...")
-                        await asyncio.sleep(1.5)
-
-                if not tab_clicked:
-                    logger.warning(f"FunPay: кнопка '{funpay_tab}' не найдена после 3 попыток (искали: {targets})")
+                if filter_btn:
+                    await filter_btn.click()
+                    await asyncio.sleep(3)
+                    tab_clicked = True
+                    logger.info(f"FunPay: выбран фильтр «{funpay_tab}»")
+                else:
+                    # Попытка 2: широкий JS-поиск с алиасами (fallback)
+                    tab_aliases = {
+                        "Items":    ["Items",    "Предметы"],
+                        "Sale":     ["Sale",     "Продажа"],
+                        "Accounts": ["Accounts", "Аккаунты"],
+                    }
+                    targets = tab_aliases.get(funpay_tab, [funpay_tab])
+                    try:
+                        await page.wait_for_selector("button[value], [role='tab'], .btn", timeout=6000)
+                    except Exception:
+                        logger.warning("FunPay: tab-кнопки не появились за 6с — пробуем без ожидания")
+                    for attempt in range(3):
+                        clicked_text = await page.evaluate("""
+                            (targets) => {
+                                var btns = document.querySelectorAll('button, .btn, [role="tab"]');
+                                for (var i = 0; i < btns.length; i++) {
+                                    var t = btns[i].innerText ? btns[i].innerText.trim() : '';
+                                    var v = btns[i].value || '';
+                                    if (targets.indexOf(t) !== -1 || targets.indexOf(v) !== -1) {
+                                        btns[i].click();
+                                        return t || v;
+                                    }
+                                }
+                                return null;
+                            }
+                        """, targets)
+                        if clicked_text:
+                            await asyncio.sleep(2)
+                            logger.info(f"FunPay: выбран фильтр «{clicked_text}» (fallback, попытка {attempt+1})")
+                            tab_clicked = True
+                            break
+                        if attempt < 2:
+                            logger.warning(f"FunPay: попытка {attempt+1} — кнопка '{funpay_tab}' не найдена, повтор...")
+                            await asyncio.sleep(1.5)
+                    if not tab_clicked:
+                        logger.warning(f"FunPay: кнопка '{funpay_tab}' не найдена после всех попыток")
 
             if not tab_clicked and funpay_tab is None:
                 # Дефолт только если tab вообще не задан — кликаем Accounts
@@ -338,35 +347,24 @@ class FunPayScraper:
             await page.evaluate("window.scrollTo(0, 0)")
             await asyncio.sleep(0.5)
 
-            all_items = await page.query_selector_all("a.tc-item")
+            # :not(.hidden) — FunPay скрывает карточки не подходящие под выбранный фильтр
+            all_items = await page.query_selector_all("a.tc-item:not(.hidden)")
 
-            # Ключевые слова data-f-type по вкладке
-            TAB_TYPE_KEYWORDS = {
-                "accounts":  ["аккаунт", "account"],
-                "аккаунты":  ["аккаунт", "account"],
-                "items":     ["предмет", "item", "товар"],
-                "предметы":  ["предмет", "item", "товар"],
-                "services":  ["услуга", "service"],
-                "услуги":    ["услуга", "service"],
-            }
-            # funpay_tab=None означает что мы кликнули Accounts по умолчанию
-            tab_key = (funpay_tab or "accounts").lower()
-            type_keywords = TAB_TYPE_KEYWORDS.get(tab_key)
-
-            if type_keywords:
+            if funpay_tab is None:
+                # Аккаунты (дефолт): дополнительно фильтруем по data-f-type
                 items = []
                 for el in all_items:
                     f_type = (await el.get_attribute("data-f-type") or "").lower()
-                    if any(kw in f_type for kw in type_keywords):
+                    if "аккаунт" in f_type or "account" in f_type:
                         items.append(el)
-                logger.info(f"FunPay: карточек типа «{funpay_tab}»: {len(items)}")
+                logger.info(f"FunPay: карточек аккаунтов: {len(items)}")
                 if not items:
-                    items = all_items
-                    logger.info(f"FunPay: fallback — data-f-type не совпал, берём все: {len(items)}")
+                    items = list(all_items)
+                    logger.info(f"FunPay: fallback — берём все видимые: {len(items)}")
             else:
-                # Sale, Guides, Gamepass и прочие — берём все карточки
-                items = all_items
-                logger.info(f"FunPay: карточек всего: {len(items)}")
+                # Items, Sale и прочие — берём все видимые карточки (фильтр уже применён)
+                items = list(all_items)
+                logger.info(f"FunPay: карточек «{funpay_tab}»: {len(items)}")
 
             first_item_logged = False
             for item in items:
