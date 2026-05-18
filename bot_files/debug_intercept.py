@@ -12,8 +12,6 @@ async def main():
     async with async_playwright() as pw:
         browser = await pw.chromium.connect_over_cdp(CDP_URL)
         context = browser.contexts[0]
-        page    = await context.new_page()
-
         api_calls = []
 
         async def on_response(response):
@@ -30,8 +28,10 @@ async def main():
                     "status": response.status,
                     "body":   body_short,
                 })
+                print(f"  >> {response.request.method} {url.replace(BASE,'')} [{response.status}]")
 
-        page.on("response", on_response)
+        # Слушаем ВСЕ страницы контекста (все вкладки браузера)
+        context.on("response", on_response)
 
         print("[1] Слушаем 15 секунд.")
         print("    >>> Открой в браузере страницу где видны твои Item-лоты на Eldorado <<<")
@@ -47,7 +47,6 @@ async def main():
             print(f"         статус={c['status']}  тело={c['body'][:120]}")
             print()
 
-        await page.close()
         print("[ГОТОВО]")
 
 asyncio.run(main())
