@@ -252,8 +252,18 @@ class EldoradoDeleter:
     def __init__(self, context: BrowserContext):
         self.context = context
 
-    async def delete_by_id(self, eldorado_lot_id: str) -> bool:
+    async def delete_by_id(self, eldorado_lot_id: str, category: str = "Account") -> bool:
         page = await self.context.new_page()
+        is_item = (category == "CustomItem")
+
+        # Endpoint и dashboard зависят от типа лота
+        if is_item:
+            delete_url = f"/api/v1/item-management/me/offers/item/{eldorado_lot_id}"
+            dashboard_url = f"{self.BASE}/dashboard/offers?category=CustomItem&pageIndex=1&pageSize=40"
+        else:
+            delete_url = f"/api/flexibleOffersUser/me/{eldorado_lot_id}"
+            dashboard_url = f"{self.BASE}/dashboard/offers?category=Account&pageIndex=1&pageSize=40"
+
         try:
             captured_headers = {}
 
@@ -264,10 +274,7 @@ class EldoradoDeleter:
 
             page.on("request", handle_request)
 
-            await page.goto(
-                f"{self.BASE}/dashboard/offers?category=Account&pageIndex=1&pageSize=40",
-                wait_until="domcontentloaded", timeout=20000
-            )
+            await page.goto(dashboard_url, wait_until="domcontentloaded", timeout=20000)
             await asyncio.sleep(3)
 
             xsrf       = (captured_headers.get("x-xsrf-token") or captured_headers.get("X-XSRF-Token") or "")
@@ -278,13 +285,12 @@ class EldoradoDeleter:
             ms_sid     = captured_headers.get("x-ms-sid", "")
             nsure      = captured_headers.get("nsure-device-id", "")
 
-            logger.info(f"LotSync: XSRF токен перехвачен (len={len(xsrf)})")
+            logger.info(f"LotSync: XSRF токен перехвачен (len={len(xsrf)}), endpoint={delete_url}")
 
             result = await page.evaluate("""
                 async (args) => {
-                    var url = '/api/flexibleOffersUser/me/' + args.lotId;
                     try {
-                        var r = await fetch(url, {
+                        var r = await fetch(args.url, {
                             method: 'DELETE',
                             credentials: 'include',
                             headers: {
@@ -306,7 +312,7 @@ class EldoradoDeleter:
                     }
                 }
             """, {
-                "lotId":     eldorado_lot_id,
+                "url":       delete_url,
                 "xsrf":      xsrf,
                 "buildTime": build_time,
                 "gaSession": ga_session,
@@ -321,7 +327,7 @@ class EldoradoDeleter:
                 return True
 
             logger.warning(f"LotSync: API вернул {result} — пробуем UI...")
-            return await self._delete_via_ui(page, eldorado_lot_id)
+            return await self._delete_via_ui(page, eldorado_lot_id, dashboard_url)
 
         except Exception as e:
             logger.error(f"LotSync: ошибка удаления ELD {eldorado_lot_id}: {e}")
@@ -329,12 +335,10 @@ class EldoradoDeleter:
         finally:
             await page.close()
 
-    async def _delete_via_ui(self, page, eldorado_lot_id: str) -> bool:
+    async def _delete_via_ui(self, page, eldorado_lot_id: str, dashboard_url: str = None) -> bool:
         try:
-            await page.goto(
-                f"{self.BASE}/dashboard/offers?category=Account&pageIndex=1&pageSize=40",
-                wait_until="domcontentloaded", timeout=20000
-            )
+            url = dashboard_url or f"{self.BASE}/dashboard/offers?category=Account&pageIndex=1&pageSize=40"
+            await page.goto(url, wait_until="domcontentloaded", timeout=20000)
             await asyncio.sleep(3)
 
             deleted = await page.evaluate("""
@@ -434,7 +438,7 @@ class LotSyncManager:
                     f"LotSync: FP:{pair.funpay_lot_id} недоступен → "
                     f"удаляем ELD:{pair.eldorado_lot_id}"
                 )
-                ok = await self.deleter.delete_by_id(pair.eldorado_lot_id)
+                ok = await self.deleter.delete_by_id(pair.eldorado_lot_id, category=pair.category)
                 if ok:
                     log_sale(pair)
                     self.storage.remove(pair.funpay_lot_id)
