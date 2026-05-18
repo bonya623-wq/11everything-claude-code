@@ -259,7 +259,7 @@ class EldoradoDeleter:
 
         # Endpoint и dashboard зависят от типа лота
         if is_item:
-            delete_url = f"/api/v1/item-management/me/offers/item/{eldorado_lot_id}"
+            delete_url = f"/api/v1/item-management/me/offers/{eldorado_lot_id}"
             dashboard_url = f"{self.BASE}/dashboard/offers?category=CustomItem&pageIndex=1&pageSize=40"
         else:
             delete_url = f"/api/flexibleOffersUser/me/{eldorado_lot_id}"
