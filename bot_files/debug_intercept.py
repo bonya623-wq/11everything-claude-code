@@ -33,12 +33,13 @@ async def main():
 
         page.on("response", on_response)
 
-        print("[1] Открываем CustomItem dashboard — ждём 5 секунд...")
-        await page.goto(
-            f"{BASE}/dashboard/offers?category=CustomItem&pageIndex=1&pageSize=40",
-            wait_until="domcontentloaded", timeout=20000
-        )
-        await asyncio.sleep(5)
+        print("[1] Слушаем 15 секунд.")
+        print("    >>> Открой в браузере страницу где видны твои Item-лоты на Eldorado <<<")
+        print("    (обычно Dashboard → My Offers → Items или Item Management)\n")
+
+        for i in range(15, 0, -1):
+            print(f"    {i}...", end="\r")
+            await asyncio.sleep(1)
 
         print(f"\n[2] Перехвачено API вызовов: {len(api_calls)}\n")
         for c in api_calls:
