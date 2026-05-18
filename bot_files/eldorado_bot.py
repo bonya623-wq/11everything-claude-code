@@ -427,30 +427,32 @@ class EldoradoBot:
             if not lot_id:
                 logger.warning(f"Eldorado: UUID не найден в ответе — пробуем fallback (последний лот)")
                 logger.debug(f"Eldorado: тело ответа: {body_text[:500]}")
-                try:
-                    latest = await page.evaluate("""
-                        async () => {
-                            const r = await fetch(
-                                '/api/flexibleOffers/me/search?pageIndex=1&pageSize=1',
-                                {credentials: 'include'}
-                            );
-                            if (r.status === 200) {
-                                const d = await r.json();
-                                const items = (d.items || (d.data && d.data.items) || d.offers || d.data || []);
-                                return items.length > 0 ? items[0] : null;
+                # Fallback через Account API работает только для Account-лотов
+                if eld_category != "CustomItem":
+                    try:
+                        latest = await page.evaluate("""
+                            async () => {
+                                const r = await fetch(
+                                    '/api/flexibleOffers/me/search?pageIndex=1&pageSize=1',
+                                    {credentials: 'include'}
+                                );
+                                if (r.status === 200) {
+                                    const d = await r.json();
+                                    const items = (d.items || (d.data && d.data.items) || d.offers || d.data || []);
+                                    return items.length > 0 ? items[0] : null;
+                                }
+                                return null;
                             }
-                            return null;
-                        }
-                    """)
-                    if latest:
-                        lot_id = str(
-                            latest.get("id") or latest.get("offerId") or
-                            latest.get("flexibleOfferId") or ""
-                        )
-                        if lot_id:
-                            logger.info(f"Eldorado: UUID получен через fallback: {lot_id}")
-                except Exception as fe:
-                    logger.warning(f"Eldorado: fallback UUID ошибка: {fe}")
+                        """)
+                        if latest:
+                            lot_id = str(
+                                latest.get("id") or latest.get("offerId") or
+                                latest.get("flexibleOfferId") or ""
+                            )
+                            if lot_id:
+                                logger.info(f"Eldorado: UUID получен через fallback: {lot_id}")
+                    except Exception as fe:
+                        logger.warning(f"Eldorado: fallback UUID ошибка: {fe}")
 
             if lot_id:
                 logger.info(f"Eldorado: ✓ лот создан — «{title[:50]}» ${price_usd} (ID: {lot_id})")
