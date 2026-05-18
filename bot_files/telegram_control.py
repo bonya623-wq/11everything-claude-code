@@ -6,11 +6,11 @@ telegram_control.py — управление FunPay Zeus Bot через Telegram
 import subprocess
 import sys
 import json
+import re
 import time
 import threading
 import logging
 from pathlib import Path
-import shlex
 
 import telebot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
@@ -21,6 +21,7 @@ ALLOWED_ID  = 444942538
 MAIN_SCRIPT = "main.py"
 LOG_DIR     = Path("logs")
 CONFIG_PATH = Path("config.json")
+LOT_PAIRS   = Path("lot_pairs.json")
 
 # ==================================================
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -40,6 +41,20 @@ def load_config():
         logger.error(f"Ошибка config.json: {e}")
         return {"games": []}
 
+
+def _send_lot_pairs_file(chat_id):
+    """Отправляет lot_pairs.json как файл в Telegram."""
+    try:
+        if LOT_PAIRS.exists():
+            data = json.loads(LOT_PAIRS.read_text(encoding="utf-8"))
+            total = sum(len(v) for v in data.values() if isinstance(v, list))
+            with open(LOT_PAIRS, "rb") as f:
+                bot.send_document(chat_id, f, caption=f"📋 База лотов: {total} шт.")
+        else:
+            bot.send_message(chat_id, "📋 База лотов пуста")
+    except Exception as e:
+        logger.warning(f"lot_pairs send: {e}")
+
 def is_running():
     return bot_process is not None and bot_process.poll() is None
 
@@ -52,6 +67,7 @@ def main_keyboard():
         kb.row(KeyboardButton("🎮 Выбрать аккаунты"), KeyboardButton("🎯 Выбрать предметы"))
     kb.row(KeyboardButton("📋 Логи"), KeyboardButton("📊 Статус"))
     kb.row(KeyboardButton("🔍 Проверить базу"), KeyboardButton("🗑 Удалить лоты"))
+    kb.row(KeyboardButton("📄 База лотов"))
     return kb
 
 def games_keyboard(selected=None):
@@ -190,6 +206,11 @@ def stream_logs(chat_id, mode=None):
     total_count   = 0
     is_check_mode = (mode == "c")
 
+    # Состояние для уведомления о публикации лота
+    _cur_game  = ""
+    _cur_title = ""
+    _cur_price = ""
+
     skip_prefixes = (
         "traceback", "file ", "  file ", "    ", "during handling",
         "call stack", "--- logging error ---", "logger.info", "logger.warning",
@@ -228,9 +249,7 @@ def stream_logs(chat_id, mode=None):
                 continue
 
             if is_check_mode:
-                import re as _re
-
-                m = _re.search(r"проверяем\s+(\d+)\s+пар", line_lower)
+                m = re.search(r"проверяем\s+(\d+)\s+пар", line_lower)
                 if m:
                     total_count = int(m.group(1))
                     try:
@@ -239,7 +258,7 @@ def stream_logs(chat_id, mode=None):
                         pass
                     continue
 
-                m = _re.search(r"\[(\d+)/(\d+)\].*активен", line_lower)
+                m = re.search(r"\[(\d+)/(\d+)\].*активен", line_lower)
                 if m:
                     checked_count = int(m.group(1))
                     if total_count == 0:
@@ -255,8 +274,8 @@ def stream_logs(chat_id, mode=None):
                     continue
 
                 if "недоступен" in line_lower and "удаляем" in line_lower:
-                    fp_m   = _re.search(r"fp:(\S+)", line_lower)
-                    eld_m  = _re.search(r"eld:(\S+)", line_lower)
+                    fp_m   = re.search(r"fp:(\S+)", line_lower)
+                    eld_m  = re.search(r"eld:(\S+)", line_lower)
                     fp_id  = fp_m.group(1) if fp_m else "?"
                     eld_id = eld_m.group(1) if eld_m else "?"
                     try:
@@ -290,6 +309,43 @@ def stream_logs(chat_id, mode=None):
                     continue
 
                 continue
+
+            # ── Отслеживаем состояние для уведомления о публикации ───────
+            if "игра:" in line_lower:
+                m = re.search(r"игра:\s*(.+)", line_raw, re.IGNORECASE)
+                if m:
+                    _cur_game = m.group(1).strip()
+
+            elif "подходящий лот" in line_lower:
+                m = re.search(r"«(.+?)»", line_raw)
+                if m:
+                    _cur_title = m.group(1).strip()
+
+            elif "funpay:" in line_lower and "= $" in line_lower:
+                m = re.search(r"=\s*\$(\d[\d.]*)", line_raw)
+                if m:
+                    _cur_price = m.group(1)
+
+            elif "+ пара: fp:" in line_lower:
+                m_fp  = re.search(r"FP:(\S+?)(?:\s|->|$)", line_raw, re.IGNORECASE)
+                m_eld = re.search(r"ELD:(\S+)", line_raw, re.IGNORECASE)
+                if m_fp and m_eld:
+                    fp_id  = m_fp.group(1).rstrip(".")
+                    eld_id = m_eld.group(1).rstrip(".")
+                    fp_url = f"https://funpay.com/en/lots/offer?id={fp_id}"
+                    notify = (
+                        f"✅ Лот опубликован\n\n"
+                        f"🎯 {_cur_game}\n"
+                        f"📌 {_cur_title[:80]}\n"
+                        f"💵 Цена Eldorado: ${_cur_price}\n\n"
+                        f"🔗 Пара:\n"
+                        f"FunPay: {fp_url}\n"
+                        f"Eldorado ID: {eld_id}"
+                    )
+                    try:
+                        bot.send_message(chat_id, notify)
+                    except Exception as _ne:
+                        logger.warning(f"lot notify: {_ne}")
 
             if not any(kw in line_lower for kw in interesting):
                 continue
@@ -534,6 +590,12 @@ def cmd_status(msg):
         + sales_text
     )
     bot.send_message(msg.chat.id, text, reply_markup=main_keyboard())
+
+@bot.message_handler(func=lambda m: m.text == "📄 База лотов")
+def cmd_lot_pairs(msg):
+    if msg.from_user.id != ALLOWED_ID: return
+    _send_lot_pairs_file(msg.chat.id)
+
 
 @bot.message_handler(func=lambda m: m.text == "🗑 Удалить лоты")
 def cmd_delete_lots(msg):
