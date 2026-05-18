@@ -4,18 +4,13 @@ from playwright.async_api import async_playwright, TimeoutError as PWTimeout
 
 from .base import BaseParser, Listing
 from ._helpers import parse_usd
-from normalizer import normalize_item, extract_quantity
+from normalizer import normalize_and_extract, extract_quantity
 import config
 
 log = logging.getLogger(__name__)
 
 
 class FunPayParser(BaseParser):
-    """
-    Parses FunPay lot listing page.
-    URL: https://funpay.com/lots/<category_id>/
-    Find the correct category ID by browsing FunPay for Bee Swarm Simulator.
-    """
     platform = "FunPay"
 
     def __init__(self, url: str = None):
@@ -45,7 +40,6 @@ class FunPayParser(BaseParser):
                 for card in cards:
                     try:
                         title_el = await card.query_selector(".tc-desc-text")
-                        # Price can be in .tc-price div or direct .tc-price
                         price_el = (
                             await card.query_selector(".tc-price div")
                             or await card.query_selector(".tc-price")
@@ -57,18 +51,15 @@ class FunPayParser(BaseParser):
 
                         raw_title = (await title_el.inner_text()).strip()
                         price_text = (await price_el.inner_text()).strip()
-                        seller = (
-                            (await seller_el.inner_text()).strip()
-                            if seller_el else "unknown"
-                        )
-                        href = await card.get_attribute("href") or ""
+                        seller    = (await seller_el.inner_text()).strip() if seller_el else "unknown"
+                        href      = await card.get_attribute("href") or ""
 
                         price = parse_usd(price_text)
                         if not price:
                             continue
 
-                        canonical = normalize_item(raw_title, config.FUZZY_THRESHOLD)
-                        if not canonical:
+                        canonical, variant = normalize_and_extract(raw_title, config.FUZZY_THRESHOLD)
+                        if canonical is None:
                             log.debug(f"FunPay no match: '{raw_title}'")
                             continue
 
@@ -78,6 +69,8 @@ class FunPayParser(BaseParser):
                         listings.append(Listing(
                             item_name_raw=raw_title,
                             item_name=canonical,
+                            variant_key=variant.key(),
+                            variant_display=variant.display(),
                             price_usd=price,
                             price_per_unit=round(price / max(qty, 1), 6),
                             quantity=qty,

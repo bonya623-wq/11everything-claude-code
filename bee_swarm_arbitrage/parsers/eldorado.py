@@ -4,17 +4,14 @@ from playwright.async_api import async_playwright, TimeoutError as PWTimeout
 
 from .base import BaseParser, Listing
 from ._helpers import parse_usd
-from normalizer import normalize_item, extract_quantity
+from normalizer import normalize_and_extract, extract_quantity
 import config
 
 log = logging.getLogger(__name__)
 
 _CARD_SELECTORS = [
-    "[class*='offer-card']",
-    "[class*='listing-card']",
-    "[class*='product-card']",
-    "[class*='item-card']",
-    "article",
+    "[class*='offer-card']", "[class*='listing-card']",
+    "[class*='product-card']", "[class*='item-card']", "article",
 ]
 _TITLE_SELECTORS = ["[class*='title']", "[class*='name']", "h3", "h2", "h4"]
 _PRICE_SELECTORS = ["[class*='price']", "[class*='amount']", "[class*='cost']"]
@@ -49,33 +46,30 @@ class EldoradoParser(BaseParser):
                 for sel in _CARD_SELECTORS:
                     cards = await page.query_selector_all(sel)
                     if cards:
-                        log.debug(f"Eldorado using selector: {sel}, {len(cards)} cards")
+                        log.debug(f"Eldorado selector: {sel}, {len(cards)} cards")
                         break
 
                 for card in cards:
                     try:
-                        title_el = await _first(card, _TITLE_SELECTORS)
-                        price_el = await _first(card, _PRICE_SELECTORS)
+                        title_el  = await _first(card, _TITLE_SELECTORS)
+                        price_el  = await _first(card, _PRICE_SELECTORS)
                         seller_el = await _first(card, _SELLER_SELECTORS)
-                        link_el = await card.query_selector("a")
+                        link_el   = await card.query_selector("a")
 
                         if not title_el or not price_el:
                             continue
 
                         raw_title = (await title_el.inner_text()).strip()
                         price_text = (await price_el.inner_text()).strip()
-                        seller = (
-                            (await seller_el.inner_text()).strip()
-                            if seller_el else "unknown"
-                        )
-                        href = await link_el.get_attribute("href") if link_el else ""
+                        seller    = (await seller_el.inner_text()).strip() if seller_el else "unknown"
+                        href      = await link_el.get_attribute("href") if link_el else ""
 
                         price = parse_usd(price_text)
                         if not price:
                             continue
 
-                        canonical = normalize_item(raw_title, config.FUZZY_THRESHOLD)
-                        if not canonical:
+                        canonical, variant = normalize_and_extract(raw_title, config.FUZZY_THRESHOLD)
+                        if canonical is None:
                             log.debug(f"Eldorado no match: '{raw_title}'")
                             continue
 
@@ -85,6 +79,8 @@ class EldoradoParser(BaseParser):
                         listings.append(Listing(
                             item_name_raw=raw_title,
                             item_name=canonical,
+                            variant_key=variant.key(),
+                            variant_display=variant.display(),
                             price_usd=price,
                             price_per_unit=round(price / max(qty, 1), 6),
                             quantity=qty,
@@ -106,7 +102,7 @@ class EldoradoParser(BaseParser):
         return listings
 
 
-async def _first(element, selectors: list[str]):
+async def _first(element, selectors):
     for sel in selectors:
         el = await element.query_selector(sel)
         if el:
