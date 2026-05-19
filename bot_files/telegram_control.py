@@ -44,16 +44,32 @@ def load_config():
 
 def _send_lot_pairs_file(chat_id):
     """Отправляет lot_pairs.json как файл в Telegram."""
+    # Ищем файл рядом со скриптом, если не нашли по текущей директории
+    path = LOT_PAIRS
+    if not path.exists():
+        alt = Path(__file__).parent / "lot_pairs.json"
+        if alt.exists():
+            path = alt
+
+    if not path.exists():
+        bot.send_message(chat_id, "📋 Файл lot_pairs.json не найден")
+        return
+
     try:
-        if LOT_PAIRS.exists():
-            data = json.loads(LOT_PAIRS.read_text(encoding="utf-8"))
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
             total = sum(len(v) for v in data.values() if isinstance(v, list))
-            with open(LOT_PAIRS, "rb") as f:
-                bot.send_document(chat_id, f, caption=f"📋 База лотов: {total} шт.")
-        else:
-            bot.send_message(chat_id, "📋 База лотов пуста")
+            caption = f"📋 База лотов: {total} шт."
+        except Exception:
+            caption = "📋 База лотов"
+        with open(path, "rb") as f:
+            bot.send_document(chat_id, f, caption=caption)
     except Exception as e:
         logger.warning(f"lot_pairs send: {e}")
+        try:
+            bot.send_message(chat_id, f"❌ Ошибка отправки файла: {e}")
+        except Exception:
+            pass
 
 def is_running():
     return bot_process is not None and bot_process.poll() is None
