@@ -555,10 +555,30 @@ async def main():
             for game in games_to_delete:
                 game_name    = game.get("name", "")
                 display_name = game.get("eldorado_display_name") or game_name
-                logger.info(f"Удаляем лоты для «{game_name}» (Eldorado: «{display_name}»)...")
-                deleted = await eldorado.mass_delete_by_game(display_name)
-                total_deleted += deleted
-                logger.info(f"{game_name}: удалено {deleted} лотов")
+                category     = game.get("eldorado_category", "Account")
+
+                if category == "CustomItem":
+                    # CustomItem: удаляем через API по ID из lot_pairs.json
+                    game_id_str = str(game.get("eldorado_game_id", ""))
+                    pairs_for_game = [
+                        p for p in sync_manager.storage.all()
+                        if p.category == "CustomItem"
+                        and (not game_id_str or p.eldorado_game_id == game_id_str)
+                    ]
+                    logger.info(f"Удаляем {len(pairs_for_game)} CustomItem лотов для «{game_name}»...")
+                    deleted = 0
+                    for pair in pairs_for_game:
+                        ok = await sync_manager.deleter.delete_by_id(pair.eldorado_lot_id, "CustomItem")
+                        if ok:
+                            sync_manager.storage.remove(pair.funpay_lot_id)
+                            deleted += 1
+                    logger.info(f"{game_name}: удалено {deleted} CustomItem лотов")
+                    total_deleted += deleted
+                else:
+                    logger.info(f"Удаляем лоты для «{game_name}» (Eldorado: «{display_name}»)...")
+                    deleted = await eldorado.mass_delete_by_game(display_name)
+                    total_deleted += deleted
+                    logger.info(f"{game_name}: удалено {deleted} лотов")
 
             logger.info(f"\nВсего удалено на сайте: {total_deleted} лотов")
 
