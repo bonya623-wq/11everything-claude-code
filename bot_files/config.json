@@ -39,10 +39,11 @@
       "image_path": "D:\\funpay_zeus_bot\\photo\\fru.jpg"
     },
     {
-      "name": "Roblox Rivals",
+      "name": "Rivals Items",
       "enabled": true,
       "funpay_url": "https://funpay.com/en/lots/2644/",
-      "zeusx_category": "Roblox Rivals",
+      "funpay_tab": "Items",
+      "eldorado_category": "CustomItem",
       "eldorado_game_id": 207,
       "price_multiplier": 1.8,
       "min_funpay_price_usd": 8,
