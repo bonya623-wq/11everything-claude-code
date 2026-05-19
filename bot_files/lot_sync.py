@@ -411,16 +411,18 @@ class LotSyncManager:
         )
         self.storage.add(pair)
 
-    async def check_once(self, category_filter: str = None) -> int:
+    async def check_once(self, category_filter: str = None, game_id_filter: str = None) -> int:
         pairs = self.storage.all()
         if category_filter:
             pairs = [p for p in pairs if p.category == category_filter]
+        if game_id_filter:
+            pairs = [p for p in pairs if p.eldorado_game_id == game_id_filter]
         if not pairs:
             label = f"[{category_filter}] " if category_filter else ""
             logger.info(f"LotSync: {label}нет пар для проверки")
             return 0
 
-        label = f"[{category_filter}] " if category_filter else ""
+        label = (f"[{category_filter}] " if category_filter else "") + (f"[game={game_id_filter}] " if game_id_filter else "")
         logger.info(f"LotSync: {label}проверяем {len(pairs)} пар...")
         deleted = 0
 
