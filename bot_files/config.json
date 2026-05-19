@@ -46,7 +46,7 @@
       "eldorado_category": "CustomItem",
       "eldorado_game_id": 207,
       "price_multiplier": 1.8,
-      "min_funpay_price_usd": 8,
+      "min_funpay_price_usd": 4,
       "max_funpay_price_usd": 300,
       "min_seller_reviews": 50,
       "require_auto_delivery": false,
