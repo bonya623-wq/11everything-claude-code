@@ -20,6 +20,7 @@ class FunPayLot:
     description: str
     href: str = ""
     lot_id: str = ""
+    seller: str = ""           # имя продавца (для блеклиста)
     image_paths: list = None   # локальные пути к скачанным фото лота
     game_id: int = 0           # eldorado game_id (используется в get_seller_lots)
     game_name: str = ""        # название игры  (используется в get_seller_lots)
@@ -394,6 +395,9 @@ class FunPayScraper:
                             first_item_logged = True
                         continue
 
+                    seller_el = await item.query_selector(".media-user-name")
+                    lot_seller = (await seller_el.inner_text()).strip() if seller_el else ""
+
                     if min_seller_reviews > 0:
                         reviews_el = await item.query_selector(".rating-mini-count, .tc-user .rating-num")
                         reviews = 0
@@ -459,6 +463,7 @@ class FunPayScraper:
                         description=description or title or "Account",
                         href=lot_href,
                         lot_id=lot_id,
+                        seller=lot_seller,
                         image_paths=image_paths,
                         region=lot_region,
                     )
