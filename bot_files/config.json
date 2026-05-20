@@ -153,6 +153,24 @@
       "image_path": "D:\\funpay_zeus_bot\\photo\\grow.jpg"
     },
     {
+      "name": "Grow a Garden Items",
+      "enabled": true,
+      "funpay_url": "https://funpay.com/en/lots/3386/",
+      "funpay_tab": "Items",
+      "eldorado_category": "CustomItem",
+      "eldorado_game_id": 243,
+      "trade_environment_id": "14",
+      "price_multiplier": 1.8,
+      "min_funpay_price_usd": 5,
+      "max_funpay_price_usd": 100,
+      "min_seller_reviews": 50,
+      "require_auto_delivery": false,
+      "max_lots": 50,
+      "lots_per_pass": 10,
+      "lot_threshold": 500,
+      "image_path": "D:\\funpay_zeus_bot\\photo\\grow.jpg"
+    },
+    {
       "name": "Blade Ball",
       "enabled": true,
       "funpay_url": "https://funpay.com/en/lots/1969/",
