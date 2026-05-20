@@ -274,7 +274,7 @@ def stream_logs(chat_id, mode=None):
                         pass
                     continue
 
-                m = re.search(r"\[(\d+)/(\d+)\].*активен", line_lower)
+                m = re.search(r"\[(\d+)/(\d+)\].*(?:активен|недоступен)", line_lower)
                 if m:
                     checked_count = int(m.group(1))
                     if total_count == 0:

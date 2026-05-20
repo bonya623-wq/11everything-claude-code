@@ -411,10 +411,16 @@ class LotSyncManager:
         )
         self.storage.add(pair)
 
+    # Все категории которые используют Account-эндпоинт Eldorado
+    ACCOUNT_CATEGORIES = {"Account", "roblox", "Roblox Rivals"}
+
     async def check_once(self, category_filter: str = None, game_id_filter: str = None) -> int:
         pairs = self.storage.all()
         if category_filter:
-            pairs = [p for p in pairs if p.category == category_filter]
+            if category_filter == "Account":
+                pairs = [p for p in pairs if p.category in self.ACCOUNT_CATEGORIES]
+            else:
+                pairs = [p for p in pairs if p.category == category_filter]
         if game_id_filter:
             pairs = [p for p in pairs if p.eldorado_game_id == game_id_filter]
         if not pairs:
@@ -442,7 +448,7 @@ class LotSyncManager:
                     continue
 
                 logger.info(
-                    f"LotSync: FP:{pair.funpay_lot_id} недоступен → "
+                    f"LotSync: [{idx}/{len(pairs)}] FP:{pair.funpay_lot_id} недоступен → "
                     f"удаляем ELD:{pair.eldorado_lot_id}"
                 )
                 ok = await self.deleter.delete_by_id(pair.eldorado_lot_id, category=pair.category)
