@@ -246,6 +246,7 @@ class FunPayScraper:
         max_price_usd: float = 999999.0,
         used_lot_ids: set = None,
         funpay_tab: str = None,   # "Sale", "Items", "Accounts" и т.д.
+        seller_blacklist: list = None,
     ) -> Optional[FunPayLot]:
         page = await self.context.new_page()
         try:
@@ -397,6 +398,12 @@ class FunPayScraper:
 
                     seller_el = await item.query_selector(".media-user-name")
                     lot_seller = (await seller_el.inner_text()).strip() if seller_el else ""
+
+                    if seller_blacklist and lot_seller:
+                        seller_lower = lot_seller.lower()
+                        if any(bl in seller_lower for bl in seller_blacklist):
+                            logger.info(f"FunPay: продавец «{lot_seller}» в блеклисте — пропускаем лот")
+                            continue
 
                     if min_seller_reviews > 0:
                         reviews_el = await item.query_selector(".rating-mini-count, .tc-user .rating-num")

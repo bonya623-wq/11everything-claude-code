@@ -301,6 +301,7 @@ async def process_game(game, funpay, eldorado, sync_manager, mode, global_thresh
         max_price_usd=game.get("max_funpay_price_usd", 999999.0),
         used_lot_ids=session_used,
         funpay_tab=game.get("funpay_tab", None),
+        seller_blacklist=seller_blacklist,
     )
     if lot_fp is None:
         logger.warning("Не удалось получить лот с FunPay")
@@ -318,29 +319,6 @@ async def process_game(game, funpay, eldorado, sync_manager, mode, global_thresh
     while created < to_create and _attempts < to_create + 20:
         _attempts += 1
         our_price = round(current_lot.price * multiplier, 2)
-
-        # Проверка блеклиста продавца
-        if seller_blacklist:
-            seller = (getattr(current_lot, "seller", None) or "").lower().strip()
-            if seller and any(bl in seller for bl in seller_blacklist):
-                logger.info(f"FunPay: продавец «{seller}» в блеклисте — пропускаем лот")
-                if current_lot.lot_id:
-                    session_used.add(current_lot.lot_id)
-                    save_used_lot(current_lot.lot_id, name)
-                next_lot = await funpay.get_best_lot(
-                    lots_url=game["funpay_url"],
-                    min_seller_reviews=game.get("min_seller_reviews", 0),
-                    require_auto_delivery=game.get("require_auto_delivery", False),
-                    min_price_usd=game.get("min_funpay_price_usd", 0.0),
-                    max_price_usd=game.get("max_funpay_price_usd", 999999.0),
-                    used_lot_ids=session_used,
-                    funpay_tab=game.get("funpay_tab", None),
-                )
-                if next_lot is None:
-                    logger.warning("FunPay: подходящих лотов больше нет")
-                    break
-                current_lot = next_lot
-                continue
 
         # Помечаем как использованный ДО создания
         if current_lot.lot_id:
@@ -365,6 +343,7 @@ async def process_game(game, funpay, eldorado, sync_manager, mode, global_thresh
                 max_price_usd=game.get("max_funpay_price_usd", 999999.0),
                 used_lot_ids=session_used,
                 funpay_tab=game.get("funpay_tab", None),
+                seller_blacklist=seller_blacklist,
             )
             if next_lot is None:
                 logger.warning("FunPay: подходящих лотов больше нет")
@@ -469,6 +448,7 @@ async def process_game(game, funpay, eldorado, sync_manager, mode, global_thresh
                 max_price_usd=game.get("max_funpay_price_usd", 999999.0),
                 used_lot_ids=session_used,
                 funpay_tab=game.get("funpay_tab", None),
+                seller_blacklist=seller_blacklist,
             )
             if next_lot:
                 current_lot = next_lot
