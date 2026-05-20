@@ -316,12 +316,16 @@ class EldoradoBot:
             if photos:
                 main_image = await self._upload_image(page, photos[0], xsrf_token)
                 if not main_image:
-                    logger.warning("Eldorado: фото не загружено — создаём лот без фото")
+                    logger.warning(f"Eldorado: не удалось загрузить фото ({photos[0]}) — пропускаем лот")
+                    return None
             else:
-                logger.warning(f"Eldorado: нет фото для загрузки")
-                logger.warning(f"Eldorado: image_path из конфига = {repr(image_path)}")
-                logger.warning(f"Eldorado: файл существует = {Path(image_path).exists() if image_path else 'image_path не задан'}")
-                logger.warning(f"Eldorado: image_paths с FunPay = {image_paths}")
+                logger.warning(
+                    f"Eldorado: нет фото для загрузки — пропускаем лот. "
+                    f"image_path={repr(image_path)}, "
+                    f"файл существует={Path(image_path).exists() if image_path else False}, "
+                    f"funpay фото={len(image_paths) if image_paths else 0}"
+                )
+                return None
 
             # ── Шаг 2: Формируем offerAttributes из dropdowns ─────────────
             offer_attributes = []
