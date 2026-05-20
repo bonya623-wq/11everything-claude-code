@@ -39,10 +39,12 @@ class EldoradoBot:
     # Вспомогательные: токен и базовая страница
     # ------------------------------------------------------------------
 
-    async def _ensure_base_page(self) -> Page:
+    async def _ensure_base_page(self, force_reload: bool = False) -> Page:
         """Открывает eldorado.gg если ещё не открыт (нужно для fetch с cookies)."""
+        if force_reload:
+            self._page = None
         page = await self._page_()
-        if "eldorado.gg" not in page.url:
+        if "eldorado.gg" not in page.url or force_reload:
             await page.goto(BASE, wait_until="domcontentloaded", timeout=20000)
             await asyncio.sleep(1)
         return page
@@ -286,12 +288,13 @@ class EldoradoBot:
         image_paths: list = None,
         lot_folder: str = None,
         trade_environment_id: str = None,
+        _retry: int = 0,
     ) -> Optional[str]:
         """
         Создаёт лот через API. Возвращает UUID лота или None при ошибке.
         Поддерживает category="Account" и category="CustomItem".
         """
-        page = await self._ensure_base_page()
+        page = await self._ensure_base_page(force_reload=(_retry > 0))
 
         try:
             logger.info(f"Eldorado: создаём лот (API) — «{title[:50]}» за ${price_usd}")
@@ -472,6 +475,17 @@ class EldoradoBot:
             return lot_id
 
         except Exception as e:
+            if "execution context was destroyed" in str(e).lower() and _retry < 2:
+                logger.warning(f"Eldorado: контекст уничтожен (навигация) — перезагружаем страницу и повторяем (попытка {_retry + 1}/2)...")
+                self._page = None
+                await asyncio.sleep(3)
+                return await self.create_lot(
+                    category=category, title=title, description=description,
+                    price_usd=price_usd, dropdowns=dropdowns, game_id=game_id,
+                    image_path=image_path, image_paths=image_paths,
+                    lot_folder=lot_folder, trade_environment_id=trade_environment_id,
+                    _retry=_retry + 1,
+                )
             logger.error(f"Eldorado: общее исключение в create_lot: {e}")
             return None
 
@@ -526,7 +540,13 @@ class EldoradoBot:
                 logger.info(f"Eldorado: verify попытка {attempt}/{max_attempts} — лот {lot_id} ещё не найден, ждём {delay}с...")
 
             except Exception as e:
-                logger.warning(f"Eldorado: verify попытка {attempt}/{max_attempts} — исключение: {e}")
+                if "execution context was destroyed" in str(e).lower():
+                    logger.warning(f"Eldorado: verify — контекст уничтожен, перезагружаем страницу...")
+                    self._page = None
+                    page = await self._ensure_base_page(force_reload=True)
+                    xsrf_token = await self._get_xsrf_token(page)
+                else:
+                    logger.warning(f"Eldorado: verify попытка {attempt}/{max_attempts} — исключение: {e}")
 
         logger.warning(f"Eldorado: лот {lot_id} не подтверждён после {max_attempts} попыток — пара не будет записана")
         return None
