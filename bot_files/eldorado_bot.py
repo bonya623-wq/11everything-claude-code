@@ -364,7 +364,7 @@ class EldoradoBot:
                     "attributeIdsCsv":   None,
                 },
                 "details": {
-                    "offerTitle":             title[:200],
+                    "offerTitle":             title[:160],
                     "description":            description[:3000] if description else None,
                     "hasOriginalEmail":       False,
                     "guaranteedDeliveryTime": "Day1",
