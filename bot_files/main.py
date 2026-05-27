@@ -223,10 +223,11 @@ SERVER_KEYWORDS = {
         "skip": ["asia", "america", "global", "na", "us", "cn", "china", "sea", "tw", "sar"],
         "1": ["europe", "eu"],
     },
-    # Summoners Rift (League of Legends) — только EUW, остальное пропускаем
+    # Summoners Rift (Summoners War) — только EUW, остальное пропускаем
     "summoners": {
         "skip": ["asia", "korea", "kr", "japan", "jp", "na", "america", "us", "br", "brazil",
-                 "oce", "turkey", "tr", "latin", "la", "eune", "nordic"],
+                 "oce", "turkey", "tr", "latin", "la", "eune", "nordic", "global", "sea",
+                 "中文", "cn", "china", "tw", "hk", "sar"],
         "4": ["europe", "eu", "euw"],
     },
 }
