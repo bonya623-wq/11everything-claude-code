@@ -223,11 +223,17 @@ SERVER_KEYWORDS = {
         "skip": ["asia", "america", "global", "na", "us", "cn", "china", "sea", "tw", "sar"],
         "1": ["europe", "eu"],
     },
+    # Summoners Rift (League of Legends) — только EUW, остальное пропускаем
+    "summoners": {
+        "skip": ["asia", "korea", "kr", "japan", "jp", "na", "america", "us", "br", "brazil",
+                 "oce", "turkey", "tr", "latin", "la", "eune", "nordic"],
+        "4": ["europe", "eu", "euw"],
+    },
 }
 
 def detect_trade_environment(game: dict, lot_title: str, lot_description: str) -> str | None:
     """Автоопределяет tradeEnvironmentId по ключевым словам в названии/описании лота."""
-    base_env = game.get("trade_environment_id")
+    base_env = game.get("trade_environment_id") or game.get("tradeEnvironmentId")
     game_name = game.get("name", "").lower()
 
     # Ищем подходящий маппинг по названию игры

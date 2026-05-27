@@ -375,7 +375,7 @@ class EldoradoBot:
             }
 
             payload_json = json.dumps(payload)
-            logger.info(f"Eldorado: deliveryTime={payload['details']['guaranteedDeliveryTime']} category={eld_category}")
+            logger.info(f"Eldorado: deliveryTime={payload['details']['guaranteedDeliveryTime']} category={eld_category} tradeEnvId={trade_environment_id}")
             logger.debug(f"Eldorado: payload → {payload_json[:300]}")
 
             # ── Шаг 5: Отправляем запрос ──────────────────────────────────

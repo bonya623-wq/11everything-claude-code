@@ -487,6 +487,23 @@
       "lots_per_pass": 5,
       "lot_threshold": 500,
       "image_path": "D:\\funpay_zeus_bot\\photo\\bra.png"
+    },
+    {
+      "name": "Summoners Rift",
+      "enabled": true,
+      "funpay_url": "https://funpay.com/en/lots/409/",
+      "eldorado_category": "Account",
+      "eldorado_game_id": 29,
+      "price_multiplier": 1.65,
+      "min_funpay_price_usd": 0,
+      "max_funpay_price_usd": 150,
+      "min_seller_reviews": 50,
+      "require_auto_delivery": false,
+      "max_lots": 100,
+      "lots_per_pass": 100,
+      "lot_threshold": 500,
+      "image_path": "D:\\funpay_zeus_bot\\photo\\sky.jpg",
+      "trade_environment_id": "4"
     }
   ]
 }
