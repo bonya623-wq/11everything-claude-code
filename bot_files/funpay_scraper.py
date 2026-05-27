@@ -247,6 +247,7 @@ class FunPayScraper:
         used_lot_ids: set = None,
         funpay_tab: str = None,   # "Sale", "Items", "Accounts" и т.д.
         seller_blacklist: list = None,
+        skip_regions: list = None,
     ) -> Optional[FunPayLot]:
         page = await self.context.new_page()
         try:
@@ -440,7 +441,32 @@ class FunPayScraper:
                     title_el = await item.query_selector(".tc-desc-text")
                     title = (await title_el.inner_text()).strip() if title_el else ""
 
-                    logger.info(f"FunPay: ✓ подходящий лот — «{title}» за ${price:.2f}")
+                    card_region = ""
+                    region_el = await item.query_selector(".tc-server, .server, [class*='server'], [class*='region']")
+                    if region_el:
+                        card_region = (await region_el.inner_text()).strip()
+                    if not card_region:
+                        try:
+                            card_region = await item.evaluate("""el => {
+                                const spans = el.querySelectorAll('td, .tc-server, span');
+                                for (const s of spans) {
+                                    const t = s.innerText.trim();
+                                    if (['Europe','Global','Asia','America','Korea','Japan'].some(r => t === r))
+                                        return t;
+                                }
+                                return '';
+                            }""")
+                        except Exception:
+                            card_region = ""
+
+                    region_label = f" | 🌍 {card_region}" if card_region else ""
+                    logger.info(f"FunPay: ✓ подходящий лот — «{title}» за ${price:.2f}{region_label}")
+
+                    if skip_regions and card_region:
+                        cr_lower = card_region.lower()
+                        if any(sr in cr_lower for sr in skip_regions):
+                            logger.info(f"FunPay: регион «{card_region}» в skip-листе — пропускаем лот")
+                            continue
 
                     description = title
                     lot_region = ""
@@ -451,6 +477,9 @@ class FunPayScraper:
                         description = description or title
                     if lot_region:
                         logger.info(f"FunPay: регион лота сохранён: {lot_region}")
+                    elif card_region:
+                        lot_region = card_region
+                        logger.info(f"FunPay: регион из карточки: {lot_region}")
                     else:
                         logger.warning("FunPay: lot_href пустой — описание не парсим")
 

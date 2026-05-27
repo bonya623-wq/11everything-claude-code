@@ -276,6 +276,13 @@ async def process_game(game, funpay, eldorado, sync_manager, mode, global_thresh
     threshold     = game.get("lot_threshold", global_threshold)
     game_id       = game.get("eldorado_game_id")
 
+    skip_regions = None
+    game_name_lower = name.lower()
+    for key, mapping in SERVER_KEYWORDS.items():
+        if key in game_name_lower:
+            skip_regions = mapping.get("skip", [])
+            break
+
     logger.info(f"\n{'─' * 55}\n  Игра: {name}\n{'─' * 55}")
 
     if mode == "delete_only":
@@ -309,6 +316,7 @@ async def process_game(game, funpay, eldorado, sync_manager, mode, global_thresh
         used_lot_ids=session_used,
         funpay_tab=game.get("funpay_tab", None),
         seller_blacklist=seller_blacklist,
+        skip_regions=skip_regions,
     )
     if lot_fp is None:
         logger.warning("Не удалось получить лот с FunPay")
@@ -351,6 +359,7 @@ async def process_game(game, funpay, eldorado, sync_manager, mode, global_thresh
                 used_lot_ids=session_used,
                 funpay_tab=game.get("funpay_tab", None),
                 seller_blacklist=seller_blacklist,
+                skip_regions=skip_regions,
             )
             if next_lot is None:
                 logger.warning("FunPay: подходящих лотов больше нет")
@@ -456,6 +465,7 @@ async def process_game(game, funpay, eldorado, sync_manager, mode, global_thresh
                 used_lot_ids=session_used,
                 funpay_tab=game.get("funpay_tab", None),
                 seller_blacklist=seller_blacklist,
+                skip_regions=skip_regions,
             )
             if next_lot:
                 current_lot = next_lot
